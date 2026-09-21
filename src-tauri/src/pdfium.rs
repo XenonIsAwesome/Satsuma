@@ -175,7 +175,7 @@ mod tests {
     fn find_system_pdfium_dir_in_picks_the_directory_containing_the_library() {
         let with_lib = std::env::temp_dir().join(format!("satsuma-pdfium-system-lib-test-{}", std::process::id()));
         std::fs::create_dir_all(&with_lib).unwrap();
-        std::fs::write(with_lib.join("libpdfium.so"), b"fake").unwrap();
+        std::fs::write(with_lib.join(LIBRARY_FILE_NAME), b"fake").unwrap();
 
         let without_lib = std::env::temp_dir().join(format!("satsuma-pdfium-system-empty-test-{}", std::process::id()));
         std::fs::create_dir_all(&without_lib).unwrap();
