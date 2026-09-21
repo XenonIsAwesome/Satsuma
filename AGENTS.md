@@ -73,7 +73,7 @@ Rules:
 
 ## Project
 
-Satsuma is an offline, cross-platform file converter for Windows and Linux (Tauri v2 + React), inspired by Tangerine (macOS-only). Drag a file onto the app — or select it in a file manager and press Shift — and a citrus-slice-shaped radial menu lets you pick an output format or an advanced tool (compress, crop, trim, split, merge). See [README.md](README.md) for the full concept, target format/tool scope, and interaction model, and [docs/phase0.md](docs/phase0.md) for what's actually been built and verified so far (Phase 0: hardcoded/fake format lists, no real conversion yet).
+Satsuma is an offline, cross-platform file converter for Windows and Linux (Tauri v2 + React), inspired by Tangerine (macOS-only). Drag a file onto the app — or select it in a file manager and press Shift — and a citrus-slice-shaped radial menu lets you pick an output format or an advanced tool (compress, crop, trim, split, merge). See [README.md](README.md) for the full concept, target format/tool scope, and interaction model, [docs/phase0.md](docs/phase0.md) for the GUI/interaction-model groundwork (Phase 0, complete), and [docs/phases/phase-2.md](docs/phases/phase-2.md) for the real conversion engine that landed on top of it — Phase 2 is the launch phase and has shipped; advanced per-category tools (Compress, Crop, Trim, etc.) remain out of scope until Phase 3+.
 
 ## Versioning
 

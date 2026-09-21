@@ -12,8 +12,6 @@
 [![npm audit](https://img.shields.io/endpoint?url=https://xenonisawesome.github.io/Satsuma/npm-audit-badge.json)](https://github.com/XenonIsAwesome/Satsuma/actions/workflows/ci.yml)
 [![knip](https://img.shields.io/endpoint?url=https://xenonisawesome.github.io/Satsuma/knip-badge.json)](https://github.com/XenonIsAwesome/Satsuma/actions/workflows/ci.yml)
 
-> The seven badges above read from GitHub Pages, which isn't enabled on this repo yet (private repos need a paid GitHub plan for Pages) - they'll start rendering real values as soon as Pages is turned on; see the "Badges" note in `.github/workflows/docs-deploy.yml`.
-
 Satsuma is an offline, cross-platform file converter for Windows and Linux, inspired by [Tangerine](https://tangerineformac.com/) (macOS-only). Drag a file onto the app — or select it in your file manager and press Shift — and a radial menu made of citrus-slice-shaped wedges lets you pick an output format or an advanced tool (compress, crop, trim, split, merge). Everything runs locally: no uploads, no network calls for conversion.
 
 "Tangerine" is the name of the app this project draws inspiration from, not this project's name — "Satsuma" is intentionally a different citrus to avoid confusion/trademark overlap.

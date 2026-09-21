@@ -56,9 +56,8 @@ jobs:
       # threshold is set where it is) - this workflow only publishes the
       # result, on push to main, so a PR branch can never overwrite the
       # published badge state. Each step is independently non-blocking:
-      # this job's real job is publishing the docs site, and a badge
-      # miscomputing (or Pages itself being unavailable - see below) should
-      # never take that down.
+      # this job's real job is publishing the docs site, and a single badge
+      # miscomputing should never take that down.
       - name: Install cargo-audit, cargo-deny, cargo-llvm-cov
         continue-on-error: true
         uses: taiki-e/install-action@v2
@@ -155,17 +154,9 @@ jobs:
       - name: Generate serve.json
         run: node scripts/generate-serve-json.mjs site
 
-      # Pages isn't enabled on this repo yet (private repo - GitHub Pages
-      # for private repos needs a paid plan). These two steps - and the
-      # deploy job's own step below - are left in place, ready to work the
-      # moment Pages is enabled, but marked non-blocking in the meantime so
-      # this workflow doesn't sit permanently red over infrastructure that
-      # hasn't been provisioned yet.
       - uses: actions/configure-pages@v5
-        continue-on-error: true
 
       - uses: actions/upload-pages-artifact@v3
-        continue-on-error: true
         with:
           path: site
 
@@ -178,4 +169,3 @@ jobs:
     steps:
       - uses: actions/deploy-pages@v4
         id: deployment
-        continue-on-error: true
