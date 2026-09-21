@@ -105,11 +105,10 @@
 //! UnRAR. The license is still not MIT/Apache/BSD, is bundled as
 //! compiled-in C++ source (not merely linked as a system library), and
 //! its wording is unusual enough (Debian ships `unrar` in `non-free` on
-//! account of it) that it warrants the project owner's explicit sign-off
-//! before shipping a build that includes it, even though the use here
-//! stays within the license's own explicit grant. See `Cargo.toml`'s
-//! comment on the `unrar` dependency and this crate's report for the
-//! same note.
+//! account of it) that this tradeoff was raised with, and accepted by,
+//! the project owner (see `THIRD_PARTY_LICENSES.md`'s "unrar" writeup for
+//! the full decision record). See `Cargo.toml`'s comment on the `unrar`
+//! dependency for the same note.
 //!
 //! ## RAR writing: hand-rolled RAR5, store method only
 //!
