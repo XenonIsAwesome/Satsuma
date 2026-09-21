@@ -40,6 +40,13 @@ jobs:
 
       - run: npm ci
 
+      # The Phase 2 sidecars are gitignored (no checked-in placeholders -
+      # see AGENTS.md); tauri-build validates the `resources` paths on
+      # every build, so fetch them before any cargo invocation that
+      # compiles the satsuma crate (cargo doc included).
+      - name: Fetch the vendored FFmpeg and pdfium sidecars
+        run: scripts/fetch-ffmpeg.sh && scripts/fetch-pdfium.sh
+
       # satsuma-core and satsuma (src-tauri) both `#![deny(missing_docs)]`,
       # so this also re-enforces the docs-coverage gate from ci.yml's
       # docs-coverage job before anything gets published.
