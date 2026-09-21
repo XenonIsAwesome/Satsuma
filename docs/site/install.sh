@@ -147,11 +147,20 @@ case "$format" in
     if command -v dnf >/dev/null 2>&1; then
       $sudo dnf install -y "$asset_file"
     elif command -v zypper >/dev/null 2>&1; then
-      $sudo zypper --non-interactive install "$asset_file"
+      # A local file install has no GPG signature to check - zypper's
+      # non-interactive mode otherwise refuses to install an unsigned
+      # package rather than silently skipping the check.
+      $sudo zypper --non-interactive --no-gpg-checks install "$asset_file"
     elif command -v yum >/dev/null 2>&1; then
-      $sudo yum install -y "$asset_file"
+      if ! $sudo yum install -y "$asset_file"; then
+        die "yum couldn't resolve one or more dependencies for this package (see the 'nothing provides ...' error(s) above) - that usually means a required repository isn't enabled on this system, or its metadata is stale. Try 'sudo yum makecache' (or enabling the relevant repo, e.g. EPEL) and re-run this script."
+      fi
     else
-      $sudo rpm -i "$asset_file"
+      # Plain rpm, unlike dnf/zypper/yum, never resolves or installs
+      # dependencies on its own - it just lists what's missing and exits.
+      if ! $sudo rpm -i "$asset_file"; then
+        die "rpm reported missing dependencies above - plain 'rpm' doesn't resolve them automatically like dnf/zypper/yum do. Install the listed package(s) yourself with your system's package manager, then download and install the .rpm from $RELEASES_URL again."
+      fi
     fi
     ;;
   appimage)
