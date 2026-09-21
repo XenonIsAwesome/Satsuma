@@ -1,6 +1,6 @@
 # Contributing to Satsuma
 
-Thanks for taking a look at Satsuma. This is a pre-1.0 project under active development (see [Current status](README.md#current-status) for exactly what's real today vs. still planned), so contributions of all sizes are useful: bug reports, docs fixes, tests, and code.
+Thanks for taking a look at Satsuma. This project is under active development (see [Current status](README.md#current-status) for exactly what's real today vs. still planned), so contributions of all sizes are useful: bug reports, docs fixes, tests, and code.
 
 Before diving in:
 

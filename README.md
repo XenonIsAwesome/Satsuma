@@ -18,6 +18,30 @@ Satsuma is an offline, cross-platform file converter for Windows and Linux, insp
 
 > **Trademark / no-affiliation notice:** Satsuma is an independent project and is **not affiliated with, endorsed by, or sponsored by** Tangerine, tangerineformac.com, or its developer(s). "Tangerine" is referenced here solely to describe the app that inspired this project's interaction model; no Tangerine trademarks, logos, source code, or other copyrighted assets are used in or distributed with Satsuma. All code, icons, and other assets in this repository are original works of the Satsuma project unless otherwise noted.
 
+## Installation
+
+Every [GitHub Release](https://github.com/XenonIsAwesome/Satsuma/releases) ships installers for both platforms. Pick whichever of the three options below fits — each platform's options are ordered easiest first.
+
+### Linux
+
+1. **Bootstrap script** — detects your distro's package manager (dpkg/rpm, falling back to a portable AppImage) and installs the latest release:
+   ```bash
+   curl -fsSL https://xenonisawesome.github.io/Satsuma/install.sh | sh
+   ```
+   Pass a version to install something other than latest: `curl -fsSL https://xenonisawesome.github.io/Satsuma/install.sh | sh -s -- v1.2.0`.
+2. **Installers** — download the `.deb`, `.rpm`, or portable `.AppImage` yourself from the [Releases page](https://github.com/XenonIsAwesome/Satsuma/releases) and install/run it directly.
+3. **Compile it yourself** — see [Development](#development) below.
+
+### Windows
+
+1. **Bootstrap script** — downloads and silently runs the latest release's `.msi` installer:
+   ```powershell
+   irm https://xenonisawesome.github.io/Satsuma/install.ps1 | iex
+   ```
+   Pass `-Version`/`-Type` for a specific release or the `.exe` (NSIS) bundle instead of the default `.msi` — see the script's own header comment for the exact syntax.
+2. **Installers** — download the `.msi` or `.exe` yourself from the [Releases page](https://github.com/XenonIsAwesome/Satsuma/releases) and run it.
+3. **Compile it yourself** — see [Development](#development) below.
+
 ## Tech stack
 
 - **App shell:** [Tauri](https://tauri.app/) (Rust backend), v2
