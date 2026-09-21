@@ -1,0 +1,439 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# dorny/paths-filter (in the `changes` job below) needs pull-requests: read
+# to fetch a PR's changed-files list from the GitHub API.
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      frontend: ${{ steps.filter.outputs.frontend }}
+      backend: ${{ steps.filter.outputs.backend }}
+      e2e: ${{ steps.filter.outputs.e2e }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # Drives which jobs below actually run - e.g. a docs-only PR shouldn't
+      # spin up the Rust/e2e matrix. Changing this workflow file itself is
+      # treated as touching every category, so a CI change is always
+      # exercised by the CI it's changing.
+      - uses: dorny/paths-filter@v4
+        id: filter
+        with:
+          filters: |
+            workflow: &workflow
+              - '.github/workflows/ci.yml'
+            frontend:
+              - *workflow
+              - 'src/**'
+              - 'package.json'
+              - 'package-lock.json'
+              - 'vite.config.ts'
+              - 'tsconfig*.json'
+              - 'index.html'
+              - 'public/**'
+            backend:
+              - *workflow
+              - 'crates/**'
+              - 'src-tauri/**'
+              - 'Cargo.toml'
+              - 'Cargo.lock'
+            e2e:
+              - *workflow
+              - 'src/**'
+              - 'crates/**'
+              - 'src-tauri/**'
+              - 'Cargo.toml'
+              - 'Cargo.lock'
+              - 'package.json'
+              - 'package-lock.json'
+              - 'tests/e2e-linux/**'
+              - 'tests/e2e-windows/**'
+
+  frontend:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npm run test
+      - run: npm run build
+
+  backend:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linux system dependencies
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          # ffmpeg: the real video/audio conversion the Phase 2 test suites
+          # exercise (system binary - find_ffmpeg in convert/audio.rs and
+          # convert/video.rs checks /usr/bin/ffmpeg first). unrar + 7z:
+          # cross-validates the RAR5 writer's output against the system's
+          # own tools (archive.rs's assert_unrar_accepts/assert_7z_accepts
+          # - they skip cleanly when absent, but CI should run them for
+          # real). p7zip-full provides the `7z` binary; `unrar` is in
+          # multiverse (enabled on the runner image).
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev libgtk-3-dev ffmpeg unrar p7zip-full
+
+      # The Windows runner ships 7-Zip but no unrar, and the `ffmpeg.exe`
+      # it has on PATH is broken (a wrong-architecture stub that can't
+      # spawn - see OS error 216 in past runs). Install working binaries:
+      # choco's shims land in C:\ProgramData\chocolatey\bin (on PATH),
+      # and the ffmpeg suites' find_ffmpeg scans every PATH match and
+      # verifies -version runs, so even an earlier broken binary on PATH
+      # can't shadow choco's working ffmpeg (archive.rs's unrar/7z checks
+      # also skip cleanly if either still isn't found).
+      - name: Install FFmpeg and unrar (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: choco install -y --no-progress unrar ffmpeg
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      # The Phase 2 sidecars are gitignored (no checked-in placeholders -
+      # see AGENTS.md); tauri-build validates the `resources` paths on every build, so clippy/llvm-cov
+      # paths on every build, so fetch them before any cargo invocation
+      # that compiles the satsuma crate. The unit suites run against the
+      # system ffmpeg installed above; the fetched sidecar satisfies the
+      # build-time resource validation.
+      - name: Fetch the vendored FFmpeg and pdfium sidecars
+        if: matrix.os == 'ubuntu-latest'
+        run: scripts/fetch-ffmpeg.sh && scripts/fetch-pdfium.sh
+
+      - name: Fetch the vendored FFmpeg and pdfium sidecars
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          scripts/fetch-ffmpeg.ps1
+          scripts/fetch-pdfium.ps1
+
+      - run: cargo test --workspace
+
+  # Static analysis for the Rust workspace: lint (clippy), advisory/license/
+  # source checks (cargo-audit, cargo-deny - see deny.toml), and a unit-test
+  # line-coverage floor (cargo-llvm-cov). Kept separate from the `backend`
+  # job above so a lint or coverage regression reads as its own failing
+  # check rather than muddying "did the tests pass".
+  rust-analysis:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # reviewdog's github-pr-review reporter posts inline review comments.
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linux system dependencies
+        run: |
+          sudo apt-get update
+          # Same tool set as the backend job: ffmpeg/unrar/7z so the
+          # llvm-cov-instrumented test run actually exercises the Phase 2
+          # conversion suites instead of skipping them (and so RAR output
+          # is cross-validated against unrar/7z for real).
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev libgtk-3-dev ffmpeg unrar p7zip-full
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, llvm-tools-preview
+
+      - uses: Swatinem/rust-cache@v2
+
+      # Gitignored sidecars (see AGENTS.md) - tauri-build validates the
+      # `resources` paths on every build, so clippy/llvm-cov
+      # (which both compile the satsuma crate) need the fetch scripts run
+      # first, same as the `backend` job above.
+      - name: Fetch the vendored FFmpeg and pdfium sidecars
+        run: scripts/fetch-ffmpeg.sh && scripts/fetch-pdfium.sh
+
+      # Prebuilt binaries via taiki-e/install-action, not `cargo install` -
+      # the latter would compile each tool from source on every cache miss.
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit,cargo-deny,cargo-llvm-cov
+
+      # The actual gate: any clippy warning across the workspace fails the
+      # job outright.
+      - name: clippy
+        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+
+      # Best-effort inline annotations on top of the gate above - runs
+      # clippy a second time (reviewdog's own action drives it) and is
+      # explicitly allowed to fail on its own (a GitHub API hiccup, a
+      # missing token on a fork PR, etc.) without masking the real
+      # pass/fail result the step above already produced. `if: !cancelled()`
+      # (not the default) so this still runs - and actually posts
+      # annotations - when the strict step above is the one that failed,
+      # which is exactly the case you most want inline comments for; the
+      # job's overall pass/fail still tracks the strict step, since this
+      # one is continue-on-error and doesn't have its own hard failure mode
+      # of consequence here.
+      - name: clippy (reviewdog inline PR comments)
+        if: "!cancelled() && github.event_name == 'pull_request'"
+        continue-on-error: true
+        uses: giraffate/clippy-action@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          reporter: github-pr-review
+          fail_on_error: "false"
+          clippy_flags: --workspace --all-targets --all-features -- -D warnings
+
+      - name: cargo-audit (RustSec advisory database)
+        run: cargo audit
+
+      - name: cargo-deny (licenses, bans, advisories, sources - see deny.toml)
+        run: cargo deny check
+
+      # `cargo llvm-cov` builds the entire workspace a second time -
+      # instrumented with --cfg=coverage, into its own target/llvm-cov-target
+      # dir - while clippy's earlier builds still sit in the default target/.
+      # Two full debug trees of this dependency-heavy workspace (tauri,
+      # rav1e, resvg, printpdf, unrar, ...) plus the apt installs above blew
+      # the runner's disk: the llvm-cov link died with "ld terminated with
+      # signal 7 [Bus error]" at 29 MB free. Drop the clippy tree so the job
+      # peaks at one build tree at a time. cargo-audit/cargo-deny (above)
+      # don't need target/, so wiping after them loses nothing.
+      - name: Free target/ from the earlier clippy build
+        run: cargo clean
+
+      # 60% is a floor below the ~67.8% the workspace suite achieves today
+      # (measured via a manual llvm-profdata/llvm-cov run - see the fixup
+      # commit that introduced this job for the exact numbers), not an
+      # aspirational target: satsuma-core's pure logic is close to fully
+      # covered, but src-tauri's lib.rs/theme_watcher.rs are mostly
+      # OS-integration code that unit tests structurally can't reach (see
+      # this file's own module docs and CLAUDE.md's e2e-test section) -
+      # that gap is covered by tests/e2e-linux and tests/e2e-windows
+      # instead, which cargo-llvm-cov has no visibility into.
+      - name: cargo-llvm-cov (line coverage)
+        run: cargo llvm-cov --workspace --lcov --output-path lcov.info --fail-under-lines 60
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rust-coverage-lcov
+          path: lcov.info
+
+  # Static analysis for the frontend: type-checking, lint, dependency audit,
+  # unused-code detection (knip), and a unit-test line-coverage floor.
+  # Independent of rust-analysis above - a frontend-only PR shouldn't wait
+  # on (or be blocked by) Rust tooling and vice versa.
+  frontend-analysis:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npm run lint
+      # High+critical only: low/moderate advisories in transitive dev-tool
+      # dependencies are common and frequently unfixable noise that would
+      # otherwise fail this job on every run regardless of this project's
+      # own code.
+      #
+      # Retries on a registry-side audit-endpoint outage (confirmed
+      # 2026-09-19: npm's "quick audit" endpoint returned 400 mid-retirement,
+      # and even npm@12's newer "bulk advisory" endpoint 503'd with
+      # "We are currently performing maintenance" - see
+      # https://status.npmjs.org - reproduced with the exact same,
+      # untouched package-lock.json that audited clean hours earlier) -
+      # npm audit exits 1 both when it finds real vulnerabilities and when
+      # the endpoint itself errors, so this only retries/passes through an
+      # error whose own message identifies it as the latter; a real
+      # vulnerability finding (no such message) still fails immediately.
+      - name: npm audit (high+critical)
+        run: |
+          # GitHub Actions runs `run:` steps as `bash -e` - without this,
+          # `output=$(npm audit ...)` (a failing simple command) trips
+          # errexit and kills the script immediately, before `status=$?`
+          # or the retry/detection logic below ever runs.
+          set +e
+          for attempt in 1 2 3; do
+            output=$(npm audit --audit-level=high 2>&1)
+            status=$?
+            echo "$output"
+            [ $status -eq 0 ] && exit 0
+            if echo "$output" | grep -qE "audit endpoint returned an error|performing maintenance|E(CONNRESET|AI_AGAIN|TIMEDOUT)"; then
+              echo "::warning::npm audit's registry endpoint looks unavailable (attempt $attempt/3) - retrying in 20s"
+              sleep 20
+              continue
+            fi
+            exit $status
+          done
+          echo "::warning::npm audit's registry endpoint stayed unavailable after 3 attempts - not failing the build on this external outage (see https://status.npmjs.org)"
+      - run: npm run knip
+
+      # ~96%/95%/97%/90% (lines/statements/functions/branches) today - see
+      # vite.config.ts's `test.coverage.thresholds` for the enforced floor
+      # and reasoning.
+      - run: npm run test:coverage
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: frontend-coverage-lcov
+          path: coverage/lcov.info
+
+  # Docs-coverage gate: satsuma-core and satsuma (src-tauri) both have
+  # `#![deny(missing_docs)]` (see their lib.rs) - RUSTDOCFLAGS=-D warnings
+  # turns that, plus any broken intra-doc link, into a hard rustdoc failure
+  # here rather than just an IDE warning. The nightly --show-coverage step
+  # is reporting-only (feeds docs-coverage-badge.json in the Pages deploy
+  # workflow) - it doesn't itself fail the build, since deny(missing_docs)
+  # is already the enforcement mechanism.
+  docs-coverage:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linux system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev libgtk-3-dev
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      # Gitignored sidecars (see AGENTS.md) - run the fetch scripts even
+      # for `cargo doc`/`rustdoc`: build scripts run for rustdoc builds,
+      # so tauri-build's `resources` validation applies here too.
+      - name: Fetch the vendored FFmpeg and pdfium sidecars
+        run: scripts/fetch-ffmpeg.sh && scripts/fetch-pdfium.sh
+
+      - name: cargo doc (missing-docs + broken-link gate)
+        run: RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps
+
+      - uses: dtolnay/rust-toolchain@nightly
+
+      - name: Compute doc coverage (nightly --show-coverage)
+        run: |
+          cargo +nightly rustdoc -p satsuma-core --target-dir target/coverage-doc -- -Z unstable-options --show-coverage --output-format json
+          cargo +nightly rustdoc -p satsuma --lib --target-dir target/coverage-doc -- -Z unstable-options --show-coverage --output-format json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Report doc coverage
+        run: |
+          node scripts/docs-coverage-badge.mjs /tmp/docs-coverage-badge.json target/coverage-doc/doc/satsuma_core.json target/coverage-doc/doc/satsuma_lib.json
+          cat /tmp/docs-coverage-badge.json
+
+  # Real-desktop integration tests: launches the actual built binary the
+  # same way a file-manager context-menu action / Explorer trigger does,
+  # puppets the real cursor, and asserts on real observable side effects
+  # (the overlay window appearing/hiding, convert_file's sibling-file
+  # write). See tests/e2e-linux/run.sh and tests/e2e-windows/run.ps1 for
+  # the full scenario list - unit tests in the `backend`/`frontend` jobs
+  # above can't cover this OS-integration layer at all.
+  e2e-linux:
+    needs: changes
+    if: needs.changes.outputs.e2e == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev libgtk-3-dev xvfb xdotool wmctrl mutter dbus-x11 x11-utils
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # `node_modules` needs to exist so run.sh can start its own vite dev
+      # server (see start_vite in tests/e2e-linux/lib.sh for why a plain
+      # `cargo build` - no `custom-protocol` feature, unlike `cargo tauri
+      # build` - needs one at all: it always loads tauri.conf.json's devUrl,
+      # never frontendDist/dist).
+      - run: npm ci
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      # Gitignored sidecars (see AGENTS.md): the harness below calls
+      # `cargo build -p satsuma`, and tauri-build validates the
+      # `resources` paths on every build.
+      - name: Fetch the vendored FFmpeg and pdfium sidecars
+        run: scripts/fetch-ffmpeg.sh && scripts/fetch-pdfium.sh
+
+      # dbus-run-session provides a real D-Bus session bus - without one,
+      # the tray icon (libayatana-appindicator3, StatusNotifierItem over
+      # D-Bus) can fail during setup and take the whole app down with it
+      # before it ever gets to show the overlay, since setup_tray()'s `?`
+      # in src-tauri/src/lib.rs's .setup() closure short-circuits
+      # everything after it, including the initial-launch show_overlay
+      # call.
+      - run: dbus-run-session -- xvfb-run --auto-servernum tests/e2e-linux/run.sh
+
+  e2e-windows:
+    needs: changes
+    if: needs.changes.outputs.e2e == 'true'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # See the matching step/comment in the e2e-linux job above - same
+      # requirement, same reason (a vite dev server this harness starts
+      # itself, via Start-ViteDevServer in tests/e2e-windows/lib.ps1).
+      - run: npm ci
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      # Gitignored sidecars (see AGENTS.md): the harness below calls
+      # `cargo build -p satsuma`, and tauri-build validates the
+      # `resources` paths on every build.
+      - name: Fetch the vendored FFmpeg and pdfium sidecars
+        shell: pwsh
+        run: |
+          scripts/fetch-ffmpeg.ps1
+          scripts/fetch-pdfium.ps1
+
+      - run: pwsh tests/e2e-windows/run.ps1

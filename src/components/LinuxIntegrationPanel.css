@@ -1,0 +1,12 @@
+.linux-integration-panel {
+  margin-top: 2rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.75rem;
+  background: rgba(0, 0, 0, 0.04);
+  font-size: 0.9rem;
+}
+
+.linux-integration-panel__error {
+  color: #c62828;
+  font-size: 0.85rem;
+}

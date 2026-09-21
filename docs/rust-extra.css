@@ -1,0 +1,124 @@
+/* Satsuma rustdoc branding overlay, layered on top of rustdoc's built-in
+ * themes via `--extend-css` (see RUSTDOCFLAGS in the docs CI job).
+ *
+ * Retheme rustdoc's own CSS custom properties to Satsuma's "Citrus"
+ * (light) / "Midnight Citrus" (dark) palettes from the design vault's
+ * DESIGN.md ("Colors"/"Themes" sections), rather than fight rustdoc's
+ * markup directly: `light` maps to Citrus; both of rustdoc's built-in dark
+ * options, `dark` and `ayu` (the default here - see RUSTDOCFLAGS), map to
+ * the same Midnight Citrus palette, so every dark-resolving path (picking
+ * "dark" explicitly, picking "ayu", or "system preference" resolving to
+ * rustdoc's own "dark") ends up branded identically. rustdoc's own
+ * Settings panel (gear icon, top right) already has a
+ * light/dark/ayu/system-preference picker with its own localStorage
+ * persistence, so reskinning the `data-theme` values it can produce -
+ * rather than building a separate toggle - gives a real Citrus/Midnight
+ * Citrus switcher for free. `:root[data-theme="..."]` matches rustdoc's
+ * own selectors' specificity, so redeclaring the same custom properties
+ * here (loaded after rustdoc's own stylesheet) overrides them without
+ * `!important`.
+ *
+ * Deliberately scoped to chrome (background/text/links/borders), not
+ * `--code-highlight-*` - rustdoc's own syntax-highlighting palettes are
+ * left alone since retuning them isn't part of "the same design language"
+ * and risks hurting code readability for a cosmetic match.
+ */
+
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&display=swap");
+
+:root[data-theme="light"] {
+  --main-background-color: #f6f3ee; /* Citrus neutral */
+  --main-color: #2b2620; /* Citrus secondary / ink */
+  --sidebar-background-color: #ffffff; /* Citrus surface */
+  --sidebar-background-color-hover: #f6f3ee;
+  --sidebar-border-color: #eae4d9; /* Citrus outline */
+  --border-color: #eae4d9;
+  --headings-border-bottom-color: #eae4d9;
+  --code-block-background-color: #ffffff;
+  --button-background-color: #ffffff;
+  --link-color: #c24a0a; /* Citrus primary-strong, AA-safe on white/ivory */
+  --sidebar-link-color: #c24a0a;
+  --settings-input-color: #ff7a29; /* Citrus primary */
+  --search-input-focused-border-color: #ff7a29;
+  --target-background-color: rgba(255, 122, 41, 0.12);
+  --target-border-color: #e85f0f; /* Citrus primary-active */
+  --src-line-number-highlighted-background-color: rgba(255, 122, 41, 0.12);
+}
+
+:root[data-theme="ayu"],
+:root[data-theme="dark"] {
+  --main-background-color: #1b1815; /* Midnight Citrus neutral */
+  --main-color: #f5efe6; /* Midnight Citrus on-surface */
+  --sidebar-background-color: #262220; /* Midnight Citrus surface */
+  --sidebar-background-color-hover: #332c26;
+  --sidebar-border-color: #3a342e; /* Midnight Citrus outline */
+  --border-color: #3a342e;
+  --headings-border-bottom-color: #3a342e;
+  --code-block-background-color: #262220;
+  --button-background-color: #262220;
+  --link-color: #ff9452; /* Midnight Citrus primary */
+  --sidebar-link-color: #ff9452;
+  --settings-input-color: #ff9452;
+  --search-input-focused-border-color: #ff9452;
+  --target-background-color: rgba(255, 148, 82, 0.12);
+  --target-border-color: #ffab74; /* Midnight Citrus primary-active */
+  --src-line-number-highlighted-background-color: rgba(255, 148, 82, 0.12);
+}
+
+:root[data-theme="ayu"] h1,
+:root[data-theme="ayu"] h2,
+:root[data-theme="ayu"] h3,
+:root[data-theme="ayu"] h4,
+:where(:root[data-theme="ayu"]) h1 a,
+:root[data-theme="ayu"] .sidebar h2 a,
+:root[data-theme="ayu"] .sidebar h3 a,
+:root[data-theme="dark"] h1,
+:root[data-theme="dark"] h2,
+:root[data-theme="dark"] h3,
+:root[data-theme="dark"] h4,
+:where(:root[data-theme="dark"]) h1 a,
+:root[data-theme="dark"] .sidebar h2 a,
+:root[data-theme="dark"] .sidebar h3 a {
+  color: #f5efe6;
+}
+
+:root[data-theme="ayu"] .sidebar .current,
+:root[data-theme="ayu"] .sidebar .current a,
+:root[data-theme="ayu"] .sidebar a:hover,
+:root[data-theme="dark"] .sidebar .current,
+:root[data-theme="dark"] .sidebar .current a,
+:root[data-theme="dark"] .sidebar a:hover {
+  color: #ffab74;
+}
+
+body,
+h1,
+h2,
+h3,
+h4,
+.sidebar {
+  font-family:
+    "Plus Jakarta Sans",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+}
+
+/* "Home" link, inserted as the first child of rustdoc's own <nav
+ * class="sidebar"> at runtime (see docs/rust-theme-sync.html) so it reads
+ * as part of the existing sidebar rather than a separate banner region. */
+.satsuma-home-link {
+  display: block;
+  padding: 0.5rem calc(0.25rem + var(--sidebar-elems-left-padding, 24px));
+  margin-bottom: 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--link-color) !important;
+  text-decoration: none;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.satsuma-home-link:hover {
+  text-decoration: underline;
+}

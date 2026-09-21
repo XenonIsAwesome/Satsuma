@@ -1,0 +1,181 @@
+name: Deploy API docs
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Only one Pages deployment at a time; a newer push should win over one
+# still in flight rather than queuing behind it.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linux system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev libgtk-3-dev
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: llvm-tools-preview
+
+      - uses: Swatinem/rust-cache@v2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      # satsuma-core and satsuma (src-tauri) both `#![deny(missing_docs)]`,
+      # so this also re-enforces the docs-coverage gate from ci.yml's
+      # docs-coverage job before anything gets published.
+      - name: Build Rust docs (rustdoc, ayu theme + Satsuma branding)
+        run: |
+          RUSTDOCFLAGS="-D warnings --default-theme ayu --extend-css $(pwd)/docs/rust-extra.css --html-before-content $(pwd)/docs/rust-home-banner.html --html-in-header $(pwd)/docs/rust-theme-sync.html" \
+            cargo doc --workspace --no-deps
+
+      - name: Build TypeScript docs (TypeDoc)
+        run: npm run docs
+
+      # Badge JSONs below re-derive the same metrics ci.yml's rust-analysis/
+      # frontend-analysis jobs already gate on (see those jobs for why each
+      # threshold is set where it is) - this workflow only publishes the
+      # result, on push to main, so a PR branch can never overwrite the
+      # published badge state. Each step is independently non-blocking:
+      # this job's real job is publishing the docs site, and a badge
+      # miscomputing (or Pages itself being unavailable - see below) should
+      # never take that down.
+      - name: Install cargo-audit, cargo-deny, cargo-llvm-cov
+        continue-on-error: true
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit,cargo-deny,cargo-llvm-cov
+
+      - name: Badge - clippy warning count
+        continue-on-error: true
+        run: |
+          mkdir -p /tmp/badges
+          count=$(cargo clippy --workspace --all-targets --all-features --message-format=json 2>/dev/null \
+            | jq -c 'select(.reason=="compiler-message" and .message.level=="warning")' | wc -l)
+          node scripts/generate-badge.mjs /tmp/badges/clippy-badge.json clippy count "$count"
+
+      - name: Badge - cargo-deny result
+        continue-on-error: true
+        run: |
+          mkdir -p /tmp/badges
+          if cargo deny check; then status=pass; else status=fail; fi
+          node scripts/generate-badge.mjs /tmp/badges/deny-badge.json deny status "$status"
+
+      - name: Badge - cargo-audit vulnerability count
+        continue-on-error: true
+        run: |
+          mkdir -p /tmp/badges
+          count=$(cargo audit --json | jq '.vulnerabilities.count')
+          node scripts/generate-badge.mjs /tmp/badges/rust-audit-badge.json "rust audit" count "$count"
+
+      - name: Badge - Rust line coverage
+        continue-on-error: true
+        run: |
+          mkdir -p /tmp/badges
+          cargo llvm-cov --workspace --json --summary-only --output-path /tmp/rust-cov.json
+          pct=$(jq '.data[0].totals.lines.percent' /tmp/rust-cov.json)
+          node scripts/generate-badge.mjs /tmp/badges/rust-coverage-badge.json "rust coverage" percentage "$pct"
+
+      - name: Badge - npm audit vulnerability count
+        continue-on-error: true
+        run: |
+          mkdir -p /tmp/badges
+          count=$(npm audit --json | jq '.metadata.vulnerabilities.total')
+          node scripts/generate-badge.mjs /tmp/badges/npm-audit-badge.json "npm audit" count "$count"
+
+      - name: Badge - knip unused-item count
+        continue-on-error: true
+        run: |
+          mkdir -p /tmp/badges
+          count=$(npx knip --no-exit-code 2>&1 | grep -oE '\([0-9]+\)' | tr -d '()' | awk '{s+=$1} END {print s+0}')
+          node scripts/generate-badge.mjs /tmp/badges/knip-badge.json knip count "$count"
+
+      - name: Badge - frontend line coverage
+        continue-on-error: true
+        run: |
+          mkdir -p /tmp/badges
+          npm run test:coverage -- --coverage.reporter=json-summary
+          pct=$(jq '.total.lines.pct' coverage/coverage-summary.json)
+          node scripts/generate-badge.mjs /tmp/badges/frontend-coverage-badge.json "frontend coverage" percentage "$pct"
+
+      - uses: dtolnay/rust-toolchain@nightly
+
+      - name: Compute doc coverage (nightly --show-coverage)
+        run: |
+          cargo +nightly rustdoc -p satsuma-core --target-dir target/coverage-doc -- -Z unstable-options --show-coverage --output-format json
+          cargo +nightly rustdoc -p satsuma --lib --target-dir target/coverage-doc -- -Z unstable-options --show-coverage --output-format json
+
+      - name: Assemble site/
+        run: |
+          set -euo pipefail
+          mkdir -p site/rust
+          cp -r target/doc/. site/rust/
+          rm -f site/rust/.lock
+          cp docs/site/index.html site/index.html
+          # Must land as site/favicon.svg (a sibling of site/rust/, not
+          # inside it) - docs/rust-theme-sync.html's injected favicon
+          # <link> reaches it via rustdoc's own per-page `data-root-path`
+          # plus one more "../", which assumes exactly this layout.
+          cp docs/site/favicon.svg site/favicon.svg
+          # Published at xenonisawesome.github.io/Satsuma/install.sh and
+          # /install.ps1 - the curl/iwr bootstraps the README/release
+          # notes point at (see each script's own header comment for its
+          # exact invocation).
+          cp docs/site/install.sh site/install.sh
+          chmod +x site/install.sh
+          cp docs/site/install.ps1 site/install.ps1
+          node scripts/docs-coverage-badge.mjs site/docs-coverage-badge.json \
+            target/coverage-doc/doc/satsuma_core.json target/coverage-doc/doc/satsuma_lib.json
+          mkdir -p /tmp/badges
+          cp /tmp/badges/*.json site/ 2>/dev/null || true
+
+      # serve.json is a local-preview convenience for `npx serve site` (see
+      # scripts/generate-serve-json.mjs's header comment) - GitHub Pages
+      # itself doesn't read this file - generated from the real rustdoc
+      # directory tree assembled just above.
+      - name: Generate serve.json
+        run: node scripts/generate-serve-json.mjs site
+
+      # Pages isn't enabled on this repo yet (private repo - GitHub Pages
+      # for private repos needs a paid plan). These two steps - and the
+      # deploy job's own step below - are left in place, ready to work the
+      # moment Pages is enabled, but marked non-blocking in the meantime so
+      # this workflow doesn't sit permanently red over infrastructure that
+      # hasn't been provisioned yet.
+      - uses: actions/configure-pages@v5
+        continue-on-error: true
+
+      - uses: actions/upload-pages-artifact@v3
+        continue-on-error: true
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/deploy-pages@v4
+        id: deployment
+        continue-on-error: true

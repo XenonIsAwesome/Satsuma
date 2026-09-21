@@ -1,0 +1,93 @@
+[package]
+name = "satsuma"
+version = "0.1.0"
+description = "Offline, cross-platform file converter for Windows and Linux"
+authors = ["XenonIsAwesome"]
+edition = "2021"
+license = "MIT"
+homepage = "https://github.com/XenonIsAwesome/Satsuma"
+repository = "https://github.com/XenonIsAwesome/Satsuma"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+# The `_lib` suffix may seem redundant but it is necessary
+# to make the lib name unique and wouldn't conflict with the bin name.
+# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
+name = "satsuma_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[features]
+# Verbose eprintln! tracing (with relative millisecond timestamps) for the
+# overlay's show/hide/focus lifecycle and, on Linux, the X11
+# activation/active-window-watching machinery in linux_integration.rs. Off
+# by default — this was built for, and is retained after, a real Linux
+# Mint/Cinnamon focus-acquisition investigation (see the Satsuma Design
+# vault's Phase 0 note); enable with `--features debug-overlay-focus` if
+# that ever needs revisiting instead of rebuilding the instrumentation
+# from scratch.
+debug-overlay-focus = []
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon"] }
+tauri-plugin-opener = "2"
+tauri-plugin-single-instance = "2"
+tauri-plugin-autostart = "2"
+# Native "pick a file" dialog for Settings' "External tools" section
+# (choosing a custom FFmpeg/pdfium path) — see SettingsScreen.tsx.
+tauri-plugin-dialog = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+satsuma-core = { path = "../crates/satsuma-core" }
+
+# Watches ~/.config/satsuma/themes/ for changes made outside the app
+# itself (hand-editing/adding/deleting a theme file) — cross-platform
+# (inotify/ReadDirectoryChangesW/FSEvents), see theme_watcher.rs.
+notify = "6"
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.61", features = [
+    "Win32_Foundation",
+    "Win32_System_Com",
+    "Win32_System_Variant",
+    "Win32_System_LibraryLoader",
+    # CreateMutexW/WaitForSingleObject for the fail-closed single-instance
+    # guard (single_instance_guard.rs) that runs before the Tauri bootstrap
+    # on Windows - see upstream plugins-workspace issue #3587. CreateMutexW
+    # is additionally gated behind Win32_Security (its SECURITY_ATTRIBUTES
+    # parameter type lives there).
+    "Win32_System_Threading",
+    "Win32_Security",
+    "Win32_UI_Shell",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_UI_Input_KeyboardAndMouse",
+] }
+
+# x11rb: queries the current global cursor position (XQueryPointer) so the
+# overlay window can appear near it, same as GetCursorPos on Windows;
+# sends a properly-timestamped _NET_ACTIVE_WINDOW request to actually
+# activate the overlay (see linux_integration::force_activate_window for
+# why tao's own set_focus() isn't reliable enough on its own); watches
+# _NET_ACTIVE_WINDOW on the root window to hide the overlay when the user
+# switches away; and (the "xtest" feature) synthesizes a zero-displacement
+# mouse-move to nudge the window manager's own "was there recent genuine
+# input" tracking, since Mutter/Muffin can otherwise defer honoring even a
+# correctly-timestamped activation request until it next sees real input —
+# see force_activate_window's doc comment. X11-only: on a Wayland session
+# (XDG_SESSION_TYPE != "x11") all of the above are skipped — the overlay
+# falls back to monitor-center placement (see
+# overlay_geometry::overlay_position's cursor fallback) and to whatever
+# set_focus() alone manages.
+#
+# raw-window-handle: same version tauri itself depends on (kept in sync so
+# cargo resolves both to one shared crate instance), used only to pull the
+# overlay's raw X11 window ID out of its WebviewWindow handle.
+[target.'cfg(target_os = "linux")'.dependencies]
+x11rb = { version = "0.13", features = ["xtest"] }
+raw-window-handle = "0.6"

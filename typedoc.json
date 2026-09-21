@@ -1,0 +1,19 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": ["src"],
+  "entryPointStrategy": "expand",
+  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx", "src/test/**"],
+  "out": "site/ts",
+  "name": "Satsuma frontend",
+  "customCss": "docs/ts-extra.css",
+  "customJs": "docs/ts-home-link.js",
+  "favicon": "assets/satsuma-logo.svg",
+  "readme": "none",
+  "excludeExternals": true,
+  "excludePrivate": true,
+  "hideGenerator": true,
+  "skipErrorChecking": true,
+  "navigationLinks": {
+    "← Satsuma Docs": "../index.html"
+  }
+}

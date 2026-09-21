@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Satsuma
+Comment=Offline file converter
+Exec=@SATSUMA_EXE@ %U
+Icon=satsuma
+Terminal=false
+Categories=Utility;Graphics;AudioVideo;
+MimeType=image/jpeg;image/png;image/webp;image/heic;image/heif;image/tiff;image/bmp;video/mp4;video/quicktime;video/x-matroska;video/webm;video/x-msvideo;audio/mpeg;audio/mp4;audio/x-wav;audio/x-flac;audio/ogg;

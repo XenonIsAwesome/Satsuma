@@ -1,0 +1,215 @@
+name: Deploy
+
+# Fires on either a version tag being pushed directly, or a GitHub Release
+# being published. The two aren't as separate as they look: publishing a
+# release always resolves to a tag (an existing one, or a brand-new one if
+# the release UI's "choose a tag > create new tag" flow was used), and for
+# both trigger kinds `github.ref_name`/`github.event.release.tag_name`
+# name that same tag. When a "create new tag through the Release UI" flow
+# fires both a `push` (tag) event and a `release: published` event for the
+# same ref almost simultaneously, the `concurrency` group below - keyed on
+# that tag - de-dupes them: whichever run starts second cancels the first
+# before it can publish anything, so exactly one run finishes and uploads
+# assets. Either trigger firing alone (a plain `git push origin vX.Y.Z`
+# with the release created separately/later, or publishing a release
+# against a tag pushed earlier) also works on its own.
+on:
+  push:
+    tags:
+      - 'v*'
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-${{ github.event.release.tag_name || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # The tag (not any committed file) is the one source of truth for
+      # what gets shipped - see AGENTS.md's "Versioning" section. Stripped
+      # of its leading "v" and stamped into package.json/tauri.conf.json/
+      # both Cargo.toml files below, right before building, by
+      # scripts/set-version.mjs. Never committed back.
+      - name: Resolve version from tag
+        id: version
+        shell: bash
+        run: |
+          tag="${{ github.event.release.tag_name || github.ref_name }}"
+          echo "version=${tag#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Install Linux system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev libgtk-3-dev
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - run: node scripts/set-version.mjs "${{ steps.version.outputs.version }}"
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      # Fetches the real vendored static FFmpeg build (gitignored - see
+      # AGENTS.md), so real conversions actually work in the shipped
+      # installer (see that script's own comments, including the licensing
+      # note on which build variant it fetches).
+      - run: scripts/fetch-ffmpeg.sh
+
+      # Vendors the pdfium shared library referenced by
+      # tauri.conf.json's `resources` entry, so PDF -> JPG/PNG
+      # rasterization works in the shipped installer (see that script's
+      # own comments).
+      - run: scripts/fetch-pdfium.sh
+
+      # Verifies the pdfium build just downloaded actually rasterizes a
+      # PDF end-to-end, so a pinned release that has drifted incompatible
+      # with this app's pdfium-render bindings fails the release here
+      # instead of shipping silent PDF -> JPG/DOCX breakage (see
+      # scripts/smoke-pdfium.sh).
+      - run: scripts/smoke-pdfium.sh
+
+      # No --bundles flag: builds every target tauri.conf.json's
+      # bundle.targets ("all") lists for this OS - .deb, .rpm, and
+      # .AppImage on Linux - so every installer format users might want
+      # exists, not just one.
+      - run: npm run tauri -- build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: satsuma-linux-installer
+          path: |
+            target/release/bundle/deb/*.deb
+            target/release/bundle/rpm/*.rpm
+            target/release/bundle/appimage/*.AppImage
+          if-no-files-found: error
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # See the matching step in build-linux above for why.
+      - name: Resolve version from tag
+        id: version
+        shell: bash
+        run: |
+          tag="${{ github.event.release.tag_name || github.ref_name }}"
+          echo "version=${tag#v}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - run: node scripts/set-version.mjs "${{ steps.version.outputs.version }}"
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      # Fetches the real vendored static FFmpeg build (gitignored - see
+      # AGENTS.md), so real conversions actually work in the shipped
+      # installer.
+      - run: pwsh scripts/fetch-ffmpeg.ps1
+
+      # Vendors the pdfium shared library referenced by
+      # tauri.conf.json's `resources` entry, so PDF -> JPG/PNG
+      # rasterization works in the shipped installer.
+      - run: pwsh scripts/fetch-pdfium.ps1
+
+      # Verifies the pdfium build just downloaded actually rasterizes a
+      # PDF end-to-end (see the matching build-linux step and
+      # scripts/smoke-pdfium.ps1).
+      - run: pwsh scripts/smoke-pdfium.ps1
+
+      # No --bundles flag: builds every target tauri.conf.json's
+      # bundle.targets ("all") lists for this OS - .msi (WiX - already
+      # configured with an upgradeCode) and .exe (NSIS) on Windows.
+      - run: npm run tauri -- build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: satsuma-windows-installer
+          path: |
+            target/release/bundle/msi/*.msi
+            target/release/bundle/nsis/*.exe
+          if-no-files-found: error
+
+  # Only runs once both builds above have actually succeeded - `needs:`
+  # skips (not "runs and fails", just skipped) this job the moment either
+  # build job fails, so a build failure can never result in a release that
+  # only has one platform's installer attached. The workflow run as a whole
+  # still shows red for the failed build job either way, which is the
+  # "fail loudly" signal - there's nothing quiet about it.
+  publish:
+    needs: [build-linux, build-windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Resolve release tag
+        id: tag
+        run: echo "tag=${{ github.event.release.tag_name || github.ref_name }}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: satsuma-*-installer
+          path: dist-artifacts
+          merge-multiple: true
+
+      # Each build job's upload-artifact step lists multiple bundle globs
+      # (bundle/deb/*.deb, bundle/rpm/*.rpm, ...), so upload-artifact
+      # preserves their common-ancestor subdirectories (deb/, rpm/,
+      # appimage/, msi/, nsis/) inside the artifact instead of flat files.
+      # Flatten them here so the glob patterns below (dist-artifacts/*)
+      # actually match installer files instead of those subdirectories.
+      - name: Flatten downloaded artifacts
+        run: |
+          find dist-artifacts -mindepth 2 -type f -exec mv -t dist-artifacts {} +
+          find dist-artifacts -mindepth 1 -type d -empty -delete
+
+      - name: Compute SHA256 hashes for the release notes artifacts table
+        id: hashes
+        run: |
+          set -euo pipefail
+          {
+            echo "table<<TABLE_EOF"
+            echo ""
+            echo "## Artifacts"
+            echo ""
+            echo "| File | SHA256 |"
+            echo "| --- | --- |"
+            for f in dist-artifacts/*; do
+              echo "| \`$(basename "$f")\` | \`$(sha256sum "$f" | cut -d' ' -f1)\` |"
+            done
+            echo "TABLE_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      # Creates the release if the tag-push trigger is what fired (no
+      # release exists yet for this tag), or updates the existing one in
+      # place otherwise (e.g. one already created by the release-notes-
+      # generation skill, or a re-run for the same version) -
+      # `append_body: true` adds this table below whatever release notes
+      # are already there rather than overwriting them.
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          files: dist-artifacts/*
+          append_body: true
+          body: ${{ steps.hashes.outputs.table }}

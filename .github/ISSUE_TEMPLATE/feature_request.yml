@@ -1,0 +1,60 @@
+name: 💡 Feature request
+description: Suggest an idea for Satsuma
+title: "[feat] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the idea! Before filing:
+
+        1. Please search [existing issues](https://github.com/XenonIsAwesome/Satsuma/issues) first.
+        2. If this is about a new format or tool, check the [target scope](../../README.md#target-scope) and [docs/tools.md](../../docs/tools.md) — PDF/DOCX/TXT conversion, archive formats (ZIP/TAR/GZIP/RAR), and subtitle formats are intentionally out of scope for now (though the architecture leaves room to add them later).
+
+  - type: dropdown
+    id: type
+    attributes:
+      label: Type of feature
+      description: This determines roughly where it'd land in the codebase, which helps with triage.
+      options:
+        - New format to convert to/from
+        - New advanced tool (compress/crop/trim/split/merge)
+        - Wedge menu / interaction model change
+        - Platform integration (Windows Explorer / Linux file managers / tray)
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Describe the problem
+      description: A clear description of the problem this feature would solve.
+      placeholder: "I'm always frustrated when..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Describe the solution you'd like
+      description: A clear description of what you'd like to happen.
+      placeholder: I would like to...
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Any alternative solutions or workarounds you've considered.
+    validations:
+      required: false
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Anything else that might be relevant (mockups, links, examples from other tools).
+    validations:
+      required: false

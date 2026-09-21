@@ -1,0 +1,27 @@
+<!--
+  Injected into every rustdoc page via `--html-before-content` (see
+  RUSTDOCFLAGS in the docs CI job / worktree README). Inserts a "Home"
+  link as the first item of rustdoc's own <nav class="sidebar"> - rather
+  than rendering a separate banner region - once that element exists
+  (deferred to DOMContentLoaded, since --html-before-content's own output
+  lands before the sidebar rustdoc itself generates).
+
+  Plain relative paths can't work here since this exact snippet is reused
+  verbatim at every nesting depth (crate root vs. a module two levels
+  deep), so the link's href is computed at runtime from rustdoc's own
+  `data-root-path` meta value (how many `../` reach rustdoc's own output
+  root) plus one more `../` to reach the landing page above it.
+-->
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    var meta = document.querySelector('meta[name="rustdoc-vars"]');
+    var root = meta ? meta.getAttribute("data-root-path") : "../";
+    var sidebar = document.querySelector("nav.sidebar");
+    if (!sidebar) return;
+    var link = document.createElement("a");
+    link.href = root + "../index.html";
+    link.className = "satsuma-home-link";
+    link.textContent = "← Satsuma Docs";
+    sidebar.insertBefore(link, sidebar.firstChild);
+  });
+</script>

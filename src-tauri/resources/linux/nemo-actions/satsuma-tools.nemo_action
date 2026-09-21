@@ -1,0 +1,7 @@
+[Nemo Action]
+Name=Satsuma Tools
+Comment=Satsuma Tools
+Exec=@SATSUMA_EXE@ --mode=tools %F
+Icon-Name=satsuma
+Selection=Any
+Mimetypes=image/jpeg;image/png;image/webp;image/heic;image/heif;image/tiff;image/bmp;video/mp4;video/quicktime;video/x-matroska;video/webm;video/x-msvideo;audio/mpeg;audio/mp4;audio/x-wav;audio/x-flac;audio/ogg;

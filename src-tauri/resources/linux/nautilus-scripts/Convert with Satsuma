@@ -1,0 +1,9 @@
+#!/bin/sh
+# Installed by Satsuma to add a "Scripts > Convert with Satsuma" entry to
+# Nautilus's right-click context menu. Nautilus passes the selected files'
+# absolute paths newline-separated in NAUTILUS_SCRIPT_SELECTED_FILE_PATHS.
+set -e
+IFS='
+'
+set -- $NAUTILUS_SCRIPT_SELECTED_FILE_PATHS
+exec @SATSUMA_EXE@ --mode=formats "$@"

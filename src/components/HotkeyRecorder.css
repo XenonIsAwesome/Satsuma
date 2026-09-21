@@ -1,0 +1,50 @@
+.hotkey-recorder {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-unit);
+  flex-wrap: wrap;
+  padding: var(--spacing-unit) 0;
+}
+
+.hotkey-recorder__label {
+  min-width: 8rem;
+  font-weight: 600;
+  color: var(--color-on-surface);
+}
+
+.hotkey-recorder__button {
+  margin-left: auto;
+  min-width: 9rem;
+  font-weight: 600;
+  font-size: 0.8125rem;
+  color: var(--color-primary-strong);
+  background: var(--color-neutral);
+  border: 1px solid var(--color-outline);
+  border-radius: var(--radius-sm);
+  padding: 6px 14px;
+  cursor: pointer;
+}
+
+.hotkey-recorder__button--recording {
+  color: var(--color-on-primary);
+  background: var(--color-primary-active);
+  border-color: var(--color-primary-active);
+  animation: hotkey-recorder-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes hotkey-recorder-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.hotkey-recorder__hint {
+  flex-basis: 100%;
+  text-align: right;
+  font-size: 0.75rem;
+  color: var(--color-on-surface-variant);
+}

@@ -1,0 +1,8 @@
+#!/bin/sh
+# Installed by Satsuma to add a "Scripts > Satsuma Tools" entry to
+# Nautilus's right-click context menu (advanced tools: compress/crop/etc).
+set -e
+IFS='
+'
+set -- $NAUTILUS_SCRIPT_SELECTED_FILE_PATHS
+exec @SATSUMA_EXE@ --mode=tools "$@"

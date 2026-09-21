@@ -1,0 +1,47 @@
+@import "../theme.css";
+
+.drop-zone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-unit);
+  width: min(90vw, 480px);
+  min-height: 220px;
+  margin: var(--spacing-unit) auto;
+  padding: var(--spacing-container-padding);
+  border: 2px dashed var(--color-outline);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--elevation-1);
+  text-align: center;
+  transition:
+    border-color 150ms ease,
+    background-color 150ms ease,
+    transform 150ms ease;
+}
+
+.drop-zone--active {
+  border-color: var(--color-primary);
+  background: var(--color-neutral);
+  transform: scale(1.02);
+}
+
+.drop-zone__file-name {
+  font-weight: 600;
+  font-size: 1.1rem;
+  word-break: break-all;
+  color: var(--color-on-surface);
+}
+
+.drop-zone__category {
+  text-transform: capitalize;
+  color: var(--color-primary-strong);
+  font-weight: 600;
+  font-size: 0.8125rem;
+}
+
+.drop-zone__hint {
+  color: var(--color-on-surface-variant);
+  font-size: 0.8125rem;
+}

@@ -1,0 +1,90 @@
+name: 🐞 Bug report
+description: Report a problem with Satsuma
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for filing a bug! A couple of things first:
+
+        1. Please search [existing issues](https://github.com/XenonIsAwesome/Satsuma/issues) first.
+        2. Satsuma is early-stage (Phase 0): the wedge menu's format/tool lists are still hardcoded, and selecting a format currently just byte-copies the file next to the original — there's no real transcoding yet. That's expected for now, not a bug — see [docs/phase0.md](https://github.com/XenonIsAwesome/Satsuma/blob/main/docs/phase0.md) for what's actually implemented.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Describe the bug
+      description: A clear description of what happened. Include screenshots if applicable.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction steps
+      description: Step-by-step, from a fresh launch if possible.
+      placeholder: |
+        1. Select a file in Nautilus
+        2. Right-click -> Convert with Satsuma
+        3. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What you expected to happen instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: OS and version
+      description: Windows build, or Linux distro + desktop environment/file manager (e.g. Linux Mint 21 / Cinnamon / Nemo). Behavior here is often platform- or DE-specific.
+      placeholder: |
+        Windows 11 23H2
+        Linux Mint 21.3, Cinnamon, Nemo
+    validations:
+      required: true
+
+  - type: dropdown
+    id: trigger
+    attributes:
+      label: How did you open the wedge menu?
+      description: The drag-and-drop path and the file-manager trigger path use different code, so this narrows things down fast.
+      options:
+        - Drag-and-drop onto the app window
+        - "Windows: selected a file in Explorer, pressed Shift"
+        - "Linux: file-manager context menu (Nautilus/Nemo/Dolphin)"
+        - Not applicable / other
+    validations:
+      required: true
+
+  - type: input
+    id: commit
+    attributes:
+      label: Satsuma commit or build
+      description: There are no releases yet — the commit hash you built from (`git rev-parse HEAD`), or the PR/branch if you built from one.
+      placeholder: e.g. 4ce37ed
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Terminal output from `npm run tauri dev`, or the Rust panic/stack trace if there is one.
+      render: text
+    validations:
+      required: false
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Anything else that might be relevant.
+    validations:
+      required: false

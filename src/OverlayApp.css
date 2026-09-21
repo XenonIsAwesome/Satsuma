@@ -1,0 +1,55 @@
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: transparent;
+}
+
+/* WedgeMenu's backdrop dims the app content behind it in the normal
+ * window's modal use — there's no app content behind a borderless overlay,
+ * just the desktop, so it stays fully transparent here instead. */
+.wedge-menu-overlay {
+  background: transparent;
+}
+
+/* Conversion/extraction failure feedback (see OverlayApp.tsx's
+ * `handleSelect`): the overlay stays open on failure and this banner
+ * surfaces the error text the same way App.tsx's toast does, proof that a
+ * broken conversion wasn't silently swallowed. Sits above WedgeMenu's own
+ * backdrop (z-index 100) so it stays visible and click-transparent. */
+.overlay-feedback {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 200;
+  max-width: min(90vw, 480px);
+  max-height: 96px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 10px 16px;
+  border-radius: var(--radius-default);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.4;
+  pointer-events: none;
+}
+
+.overlay-feedback--danger {
+  background: var(--color-danger);
+  color: var(--color-on-danger);
+  box-shadow: var(--elevation-1);
+}
+
+/* Informational in-flight indicator ("Converting to JPG…" / "Extracting…"):
+ * a subtle neutral chip so a long conversion reads as busy progress rather
+ * than a frozen menu. role="status" announces it politely (the error banner
+ * stays role="alert"). */
+.overlay-feedback--info {
+  background: var(--color-neutral);
+  color: var(--color-on-surface);
+  border: 1px solid var(--color-outline);
+  box-shadow: var(--elevation-1);
+}

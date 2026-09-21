@@ -1,0 +1,15 @@
+[Desktop Entry]
+Type=Service
+X-KDE-ServiceTypes=KDE/FileManager
+MimeType=image/jpeg;image/png;image/webp;image/heic;image/heif;image/tiff;image/bmp;video/mp4;video/quicktime;video/x-matroska;video/webm;video/x-msvideo;audio/mpeg;audio/mp4;audio/x-wav;audio/x-flac;audio/ogg;
+Actions=ConvertWithSatsuma;SatsumaTools;
+
+[Desktop Action ConvertWithSatsuma]
+Name=Convert with Satsuma
+Icon=satsuma
+Exec=@SATSUMA_EXE@ --mode=formats %F
+
+[Desktop Action SatsumaTools]
+Name=Satsuma Tools
+Icon=satsuma
+Exec=@SATSUMA_EXE@ --mode=tools %F

@@ -1,0 +1,43 @@
+/* Design tokens for Satsuma's default "Citrus" theme — see the Satsuma
+ * Design vault's DESIGN.md for the full system. Only the tokens Phase 0's
+ * UI actually consumes are defined here; a later Settings theme picker can
+ * swap these at runtime without any component needing its own per-theme
+ * logic, since every component is written against these names, not literal
+ * hex values.
+ *
+ * Imported by both windows' CSS entry points (App.css for the main window,
+ * WedgeMenu.css for the wedge menu shared by both) so each window's bundle
+ * is self-sufficient — see the comment in OverlayApp.css. */
+
+:root {
+  --color-primary: #ff7a29;
+  --color-on-primary: #ffffff;
+  --color-primary-active: #e85f0f;
+  --color-primary-strong: #c24a0a;
+  --color-secondary: #2b2620;
+  --color-tertiary: #7a7268;
+  --color-neutral: #f6f3ee;
+  --color-surface: #ffffff;
+  --color-on-surface: #2b2620;
+  --color-on-surface-variant: #7a7268;
+  --color-outline: #eae4d9;
+  --color-success: #357a4e;
+  --color-on-success: #ffffff;
+  --color-danger: #c6432e;
+  --color-on-danger: #ffffff;
+
+  --font-body: "Plus Jakarta Sans", sans-serif;
+  --font-wedge-label: "Nunito", sans-serif;
+
+  --radius-sm: 8px;
+  --radius-default: 10px;
+  --radius-lg: 16px;
+  --radius-pill: 999px;
+
+  --spacing-unit: 8px;
+  --spacing-container-padding: 24px;
+  --spacing-card-gap: 16px;
+
+  --elevation-1: 0 1px 4px rgba(0, 0, 0, 0.05);
+  --elevation-2: 0 2px 4px rgba(150, 68, 10, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}

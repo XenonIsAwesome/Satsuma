@@ -1,0 +1,50 @@
+/* Satsuma TypeDoc branding overlay (see `customCss` in typedoc.json).
+ *
+ * Retheme TypeDoc's default theme to Satsuma's "Citrus" (light) / "Midnight
+ * Citrus" (dark) palette from the design vault's DESIGN.md, matching
+ * docs/rust-extra.css's approach for the rustdoc sub-site so the two
+ * renderers feel like one site despite having completely different
+ * markup/class names. TypeDoc's own stylesheet resolves its `--color-*`
+ * custom properties from `--light-color-*` / `--dark-color-*` at :root, so
+ * redeclaring those same variables here (loaded after TypeDoc's own
+ * stylesheet, via `customCss`) re-points every themed surface without
+ * needing to touch TypeDoc's actual class selectors.
+ *
+ * Deliberately doesn't touch the `--*-color-ts-*` syntax-highlighting
+ * tokens (keyword/function/interface color, etc.) - same reasoning as the
+ * rustdoc overlay: readability of the type signatures themselves matters
+ * more than a cosmetic match there.
+ */
+
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&display=swap");
+
+:root {
+  /* Citrus (light) */
+  --light-color-background: #f6f3ee; /* neutral */
+  --light-color-background-secondary: #ffffff; /* surface */
+  --light-color-background-active: #fde6d5; /* light tint of primary */
+  --light-color-accent: #eae4d9; /* outline */
+  --light-color-text: #2b2620; /* secondary / ink */
+  --light-color-text-aside: #7a7268; /* tertiary */
+  --light-color-link: #c24a0a; /* primary-strong, AA-safe on white/ivory */
+
+  /* Midnight Citrus (dark) */
+  --dark-color-background: #1b1815; /* neutral */
+  --dark-color-background-secondary: #262220; /* surface */
+  --dark-color-background-active: #332c26;
+  --dark-color-accent: #3a342e; /* outline */
+  --dark-color-text: #f5efe6; /* on-surface */
+  --dark-color-text-aside: #b8afa3;
+  --dark-color-link: #ff9452; /* primary */
+}
+
+body,
+.tsd-page-toolbar,
+.tsd-navigation {
+  font-family:
+    "Plus Jakarta Sans",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+}

@@ -1,0 +1,78 @@
+[package]
+name = "satsuma-core"
+version = "0.1.0"
+edition = "2021"
+description = "Format detection and conversion engine for Satsuma, independent of the Tauri command layer"
+license = "MIT"
+
+[dependencies]
+crc32fast = "1.5.2"
+flate2 = "1.1.10"
+# Raster image decode/encode (JPG/PNG/WebP/TIFF/BMP/AVIF). WebP and TIFF/BMP
+# are handled by pure-Rust backends (`image-webp`, `tiff`, no system libs).
+# AVIF *encoding* uses the pure-Rust `ravif`/`rav1e` backend (the `avif`
+# feature); AVIF *decoding* is deliberately left out — see convert::image's
+# module docs for why. `default-features = false` drops formats this app
+# doesn't offer (gif/dds/exr/ff/hdr/ico/pnm/qoi) to keep the build lean.
+image = { version = "0.25", default-features = false, features = [
+    "jpeg",
+    "png",
+    "webp",
+    "tiff",
+    "bmp",
+    "avif",
+] }
+# SVG rasterization (input-only source format, per Tools.md). `resvg` is the
+# renderer; `usvg`/`tiny-skia` are named directly since convert::image uses
+# their types (Options/Tree, Pixmap/Transform) rather than only resvg's
+# re-exports.
+resvg = { version = "0.48", default-features = false }
+usvg = { version = "0.48", default-features = false }
+tiny-skia = "0.12"
+serde = { version = "1", features = ["derive"] }
+tar = "0.4.46"
+# The `unrar` crate binds RARLAB's official (proprietary-licensed, but
+# freely redistributable for *reading* purposes) UnRAR C++ source to read
+# RAR archives -- see convert/archive.rs's module doc comment ("RAR
+# reading: license judgment call") for the full license judgment call.
+# It is the only practical way to read RAR5 archives; RAR's compression
+# algorithm is not otherwise implemented in any permissively-licensed
+# Rust crate.
+unrar = "0.5.8"
+# `deflate` (pure Rust, no system zlib) plus the always-available store
+# method is all archive.rs needs; the other codecs (aes-crypto, bzip2,
+# lzma, zstd, ppmd) pull in extra native/crypto dependencies for
+# ZIP features this project never produces or expects to read.
+zip = { version = "8.6.0", default-features = false, features = ["deflate"] }
+
+# --- convert::document dependencies (PDF/TXT/SRT/VTT family) ---
+# All MIT or MIT/Apache-2.0 dual-licensed; see
+# crates/satsuma-core/src/convert/document.rs's module doc comment for the
+# license/rasterization research this is based on.
+#
+# Pure-Rust PDF text extraction (PDF -> TXT, and the text half of PDF ->
+# DOCX). No native dependency; always available.
+pdf-extract = "0.12"
+# Optional PDF *rasterization* (PDF -> JPG/PNG, and the scanned-page
+# fallback of PDF -> DOCX). Binds dynamically (via `libloading`) to a
+# pdfium shared library supplied at runtime by its path, exactly like the
+# video/audio families' FFmpeg sidecar - never linked at build time, so
+# `cargo build`/`cargo test` need no native library present.
+pdfium-render = "0.9"
+# Pure-Rust PDF *writing* (TXT -> PDF, JPG/PNG -> PDF) with real
+# embedded-font text-showing operators (selectable/copyable text) via its
+# `text_layout` feature, and raw-pixel image embedding (decoded via the
+# `image` dependency above).
+printpdf = { version = "0.12", default-features = false, features = ["text_layout"] }
+# Public-domain 8x8 bitmap font (redistributed under this crate's own MIT
+# license) for rasterizing TXT -> JPG/PNG - deliberately not a real
+# TrueType font file, to avoid taking on a separate font-asset license.
+font8x8 = "0.3"
+
+[dev-dependencies]
+serde_json = "1"
+which = "6"
+# Used only in tests, to parse the DOCX packages convert::document writes
+# back into a tree and structurally verify them (well-formed XML,
+# expected parts/text present).
+quick-xml = "0.42"

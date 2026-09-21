@@ -1,0 +1,49 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Vitest coverage reports (npm run test:coverage)
+/coverage/
+
+# Cargo workspace build output (root target/, since src-tauri and
+# crates/satsuma-core share one workspace)
+/target/
+
+# Assembled docs site (cargo doc + TypeDoc + landing page), built by CI's
+# docs-deploy workflow and published to GitHub Pages - not checked in.
+/site/
+
+# Python (tests/e2e-linux/wedge_point.py)
+__pycache__/
+*.pyc
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+# graphify: machine-local state, not portable across checkouts
+graphify-out/.graphify_python
+graphify-out/.graphify_root
+graphify-out/cost.json
+graphify-out/cache
+graphify-out/.graphify_labels.json
+# graphify's dated backups of the curated graph (e.g. 2026-09-20/) - they
+# embed the machine-local labels file and are regenerable from the source
+graphify-out/20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]/
+

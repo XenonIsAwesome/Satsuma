@@ -1,0 +1,78 @@
+<!--
+  Injected into every rustdoc page's <head> via `--html-in-header` (see
+  RUSTDOCFLAGS in the docs CI job / worktree README), landing after
+  rustdoc's own `storage-*.js` (which already ran its own theme-init by
+  this point) so this script can act on globals it defines - notably
+  `switchTheme`, a plain top-level function in that non-module script and
+  therefore a real `window` global, not a private implementation detail.
+  Runs before any paint (still inside <head>), so overriding the theme
+  here is flash-free.
+
+  Keeps rustdoc's own theme in sync with the other two docs sub-sites
+  (TypeDoc, the landing page) via one shared localStorage key,
+  "satsuma-docs-theme" ("light" | "dark"):
+
+  1. On load, if a cross-site choice is already stored, apply it here too
+     (mapping "dark" to rustdoc's "ayu", which docs/rust-extra.css skins
+     identically to rustdoc's own "dark" option - see that file's header
+     comment for why both map to the same Midnight Citrus palette).
+  2. Afterwards, watch rustdoc's own `data-theme` attribute (which its
+     Settings panel - and system-preference auto-switching - both update
+     through the same `switchTheme` call) and mirror any change back into
+     the shared key, so a choice made here is picked up next time the
+     other sub-sites load.
+
+  Deliberately watches the public `data-theme` attribute rather than
+  rustdoc's own `rustdoc-theme`/`rustdoc-use-system-theme` localStorage
+  keys or internal functions beyond `switchTheme` itself - the attribute
+  is the actual rendering hook rustdoc's CSS depends on, so it's the part
+  least likely to change across rustdoc versions without a much bigger
+  overhaul that would break this reskin anyway.
+-->
+<script>
+  // rustdoc's own `<meta name="rustdoc-vars">` (emitted just above this
+  // injected block - see RUSTDOCFLAGS) carries `data-root-path`: the
+  // "../"-repeated prefix that reaches THIS PAGE's rustdoc output root
+  // (site/rust/), computed per-page depth (one "../" from
+  // satsuma_core/index.html, two from src/satsuma_core/lib.rs.html, etc).
+  // favicon.svg lives one level above that, at the assembled site/ root
+  // (see docs-deploy.yml's "Assemble site/" step, which copies
+  // target/doc/ into site/rust/ and docs/site/favicon.svg into
+  // site/favicon.svg as siblings) - so appending one more "../" reaches
+  // it correctly from any page, at any depth, in both a local `npx serve
+  // site` preview and the real deployed site alike. A hardcoded path
+  // (relative or the production absolute URL) can't satisfy both.
+  (function () {
+    try {
+      var vars = document.querySelector('meta[name="rustdoc-vars"]');
+      var rootPath = (vars && vars.getAttribute("data-root-path")) || "../";
+      var link = document.createElement("link");
+      link.rel = "icon";
+      link.type = "image/svg+xml";
+      link.href = rootPath + "../favicon.svg";
+      document.head.appendChild(link);
+    } catch (e) {}
+  })();
+</script>
+<script>
+  (function () {
+    try {
+      var canonical = localStorage.getItem("satsuma-docs-theme");
+      if ((canonical === "light" || canonical === "dark") && typeof switchTheme === "function") {
+        switchTheme(canonical === "dark" ? "ayu" : "light", true);
+        localStorage.setItem("rustdoc-use-system-theme", "false");
+      }
+    } catch (e) {}
+
+    try {
+      new MutationObserver(function () {
+        var theme = document.documentElement.getAttribute("data-theme");
+        if (theme === "light") {
+          localStorage.setItem("satsuma-docs-theme", "light");
+        } else if (theme === "dark" || theme === "ayu") {
+          localStorage.setItem("satsuma-docs-theme", "dark");
+        }
+      }).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    } catch (e) {}
+  })();
+</script>
